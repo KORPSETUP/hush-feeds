@@ -54,6 +54,7 @@ def build() -> int:
     pins = data.get("pins", [])
 
     today = today_utc()
+    build_ts = datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S +0000")
     lo = (today - timedelta(days=WINDOW_DAYS)).isoformat()
     hi = today.isoformat()
     due = [p for p in pins if p.get("release_date") and lo <= p["release_date"] <= hi]
@@ -64,7 +65,8 @@ def build() -> int:
 
     FEEDS_DIR.mkdir(parents=True, exist_ok=True)
     for board, bpins in sorted(boards.items()):
-        bpins.sort(key=lambda p: (p.get("release_date", ""), p.get("pin_id", "")))
+        # newest-first (RSS convention; the freshest pins sit at the top of the feed)
+        bpins.sort(key=lambda p: (p.get("release_date", ""), p.get("pin_id", "")), reverse=True)
         items = []
         for p in bpins:
             img = p.get("image_url", "")
@@ -79,7 +81,7 @@ def build() -> int:
                 f'      <enclosure url="{escape(img)}" type="image/png" length="0"/>\n'
                 "    </item>"
             )
-        last_build = rfc822_from_date(bpins[-1]["release_date"]) if bpins else _EPOCH
+        last_build = build_ts
         xml = (
             '<?xml version="1.0" encoding="UTF-8"?>\n'
             '<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/">\n'
